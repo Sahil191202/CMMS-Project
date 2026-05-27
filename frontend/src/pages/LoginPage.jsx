@@ -1,101 +1,90 @@
 // LoginPage.jsx
-// Uses: Input, Button from components/ui
-// Calls: mockService.login()  →  swap for real axios call when Dev A's API is ready
-// On success: stores auth in context, navigates by role
+// Dispatches loginThunk from authSlice. No AuthContext.
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  loginThunk,
+  clearError,
+  selectUser,
+  selectIsAuthenticated,
+  selectAuthLoading,
+  selectAuthError,
+  selectInitializing,
+} from '../store/authSlice';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import mockService from '../services/mockService';
-import { useAuth } from '../App';
+import { useState } from 'react';
+
+const ROLE_REDIRECT = {
+  admin:       '/dashboard',
+  maintenance: '/tickets',
+  operator:    '/tickets',
+};
 
 const LoginPage = () => {
-  const { auth, login } = useAuth();
-  const navigate = useNavigate();
+  const dispatch      = useDispatch();
+  const navigate      = useNavigate();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const initializing    = useSelector(selectInitializing); 
+  const user          = useSelector(selectUser);
+  const loading       = useSelector(selectAuthLoading);
+  const apiError      = useSelector(selectAuthError);
 
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [form, setForm]     = useState({ username: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  // Already logged in → skip login screen
-  if (auth) {
-    const role = auth.user?.role;
-    if (role === 'operator') return <Navigate to="/tickets" replace />;
-    return <Navigate to="/dashboard" replace />;
+  // Clear any stale Redux error when component mounts
+  useEffect(() => {
+    dispatch(clearError());
+  }, [dispatch]);
+
+  if (initializing) return null;
+
+  // Already authenticated → skip login screen
+  if (isAuthenticated && user) {
+    return <Navigate to={ROLE_REDIRECT[user.role] || '/tickets'} replace />;
   }
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
-    if (apiError) setApiError('');
+    if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+    if (apiError) dispatch(clearError());
   };
 
   const validate = () => {
-    const newErrors = {};
-    if (!form.username.trim()) newErrors.username = 'Username is required.';
-    if (!form.password) newErrors.password = 'Password is required.';
-    return newErrors;
+    const e = {};
+    if (!form.username.trim()) e.username = 'Username is required.';
+    if (!form.password)        e.password = 'Password is required.';
+    return e;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = validate();
-    if (Object.keys(newErrors).length) {
-      setErrors(newErrors);
-      return;
+    const errors = validate();
+    if (Object.keys(errors).length) { setFieldErrors(errors); return; }
+
+    const result = await dispatch(loginThunk({ username: form.username, password: form.password }));
+
+    if (loginThunk.fulfilled.match(result)) {
+      const role = result.payload?.role;
+      navigate(ROLE_REDIRECT[role] || '/tickets', { replace: true });
     }
-
-    setLoading(true);
-    setApiError('');
-
-    try {
-      const result = await mockService.login(form);
-      console.log('[mockService.login] success →', result);
-
-      // Store in context + localStorage
-      login(result.token, result.user);
-
-      // Navigate by role
-      const role = result.user?.role;
-      if (role === 'operator') {
-        navigate('/tickets', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    } catch (err) {
-      console.error('[mockService.login] error →', err);
-      setApiError(err.message || 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // If rejected, apiError is set in Redux state — renders below automatically
   };
 
   return (
     <div className="min-h-screen bg-gray-950 flex">
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-900 border-r border-gray-800 flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background texture */}
-        <div className="absolute inset-0 opacity-5"
+        <div
+          className="absolute inset-0 opacity-5"
           style={{
-            backgroundImage: `repeating-linear-gradient(
-              0deg,
-              transparent,
-              transparent 40px,
-              #fff 40px,
-              #fff 41px
-            ), repeating-linear-gradient(
-              90deg,
-              transparent,
-              transparent 40px,
-              #fff 40px,
-              #fff 41px
-            )`,
+            backgroundImage: `repeating-linear-gradient(0deg,transparent,transparent 40px,#fff 40px,#fff 41px),
+                              repeating-linear-gradient(90deg,transparent,transparent 40px,#fff 40px,#fff 41px)`,
           }}
         />
-
-        {/* Logo / brand */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 bg-amber-500 flex items-center justify-center">
@@ -113,12 +102,10 @@ const LoginPage = () => {
             Centralized breakdown tracking, MTTR analysis, and machine health monitoring.
           </p>
         </div>
-
-        {/* Stats strip */}
         <div className="relative z-10 grid grid-cols-3 gap-4 border-t border-gray-800 pt-8">
           {[
             { label: 'Machines Tracked', value: '48' },
-            { label: 'Avg MTTR', value: '2.4h' },
+            { label: 'Avg MTTR',         value: '2.4h' },
             { label: 'Uptime This Month', value: '94%' },
           ].map((stat) => (
             <div key={stat.label}>
@@ -129,7 +116,7 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Right panel — login form */}
+      {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
@@ -143,17 +130,12 @@ const LoginPage = () => {
             <span className="text-xs font-bold uppercase tracking-widest text-gray-400">ESAB CMMS</span>
           </div>
 
-          {/* Form header */}
           <div className="mb-8">
-            <h1 className="text-2xl font-black uppercase tracking-tight text-gray-100">
-              Sign In
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Enter your credentials to continue.
-            </p>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-gray-100">Sign In</h1>
+            <p className="text-sm text-gray-500 mt-1">Enter your credentials to continue.</p>
           </div>
 
-          {/* API error banner */}
+          {/* API error from Redux */}
           {apiError && (
             <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 flex items-center gap-2">
               <svg className="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -163,7 +145,6 @@ const LoginPage = () => {
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <Input
               id="username"
@@ -172,12 +153,11 @@ const LoginPage = () => {
               placeholder="Enter your username"
               value={form.username}
               onChange={handleChange('username')}
-              error={errors.username}
+              error={fieldErrors.username}
               required
               disabled={loading}
               autoComplete="username"
             />
-
             <Input
               id="password"
               label="Password"
@@ -185,12 +165,11 @@ const LoginPage = () => {
               placeholder="Enter your password"
               value={form.password}
               onChange={handleChange('password')}
-              error={errors.password}
+              error={fieldErrors.password}
               required
               disabled={loading}
               autoComplete="current-password"
             />
-
             <Button
               type="submit"
               variant="primary"
@@ -201,25 +180,6 @@ const LoginPage = () => {
               {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
-
-          {/* Role hint for dev testing */}
-          <div className="mt-8 border border-gray-800 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-3">
-              Dev Testing — Username shortcuts
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {['admin', 'maintenance', 'operator'].map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setForm({ username: role, password: 'test' })}
-                  className="text-xs py-1.5 px-2 bg-gray-900 border border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-700 transition-colors capitalize"
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
