@@ -1,9 +1,5 @@
 # API Contracts — CMMS Backend
 
-> Dev B: read this and build your mockService.js from these shapes.
-> Every response shape here is exactly what the real API will return.
-> When the real API is ready, swap mock for Axios — zero UI rework.
-
 Base URL: `http://localhost:5000/api`
 
 ---
