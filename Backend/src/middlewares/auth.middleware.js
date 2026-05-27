@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const pool = require("../config/database");
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -11,6 +12,17 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if token is blacklisted (user logged out)
+    const blacklisted = await pool.query(
+      "SELECT 1 FROM blacklisted_tokens WHERE token = $1",
+      [token]
+    );
+
+    if (blacklisted.rows.length > 0) {
+      return res.status(401).json({ message: "Token has been invalidated. Please login again." });
+    }
+
     req.user = decoded; // { id, role }
     next();
   } catch (err) {

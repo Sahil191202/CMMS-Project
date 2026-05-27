@@ -139,11 +139,30 @@ const refresh = async (req, res) => {
 
 // POST /auth/logout
 const logout = async (req, res) => {
-  const token = req.cookies.refreshToken;
+  const refreshToken = req.cookies.refreshToken;
+  const authHeader = req.headers["authorization"];
 
-  if (token) {
-    // Delete from DB so it can never be reused
-    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [token]);
+  // Blacklist the access token so it's dead immediately
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const accessToken = authHeader.split(" ")[1];
+    try {
+      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
+      const expiresAt = new Date(decoded.exp * 1000); // exp is in seconds
+
+      await pool.query(
+        `INSERT INTO blacklisted_tokens (token, expires_at)
+         VALUES ($1, $2)
+         ON CONFLICT (token) DO NOTHING`,
+        [accessToken, expiresAt]
+      );
+    } catch (err) {
+      // Token already expired or invalid — no need to blacklist
+    }
+  }
+
+  // Delete refresh token from DB
+  if (refreshToken) {
+    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [refreshToken]);
   }
 
   res.clearCookie("refreshToken");
