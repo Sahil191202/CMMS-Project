@@ -21,6 +21,12 @@ import AppLayout from "./layouts/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+// ─── Master Data pages (Dev B) ────────────────────────────────────────────────
+import MachinesPage       from "./pages/master-data/MachinesPage";
+import LocationsPage      from "./pages/master-data/LocationsPage";
+import BreakdownTypesPage from "./pages/master-data/BreakdownTypesPage";
+import RootCausesPage     from "./pages/master-data/RootCausesPage";
+import MttrReasonsPage    from "./pages/master-data/MttrReasonsPage";
 
 // ─── Loaders & Guards ─────────────────────────────────────────────────────────
 
@@ -98,10 +104,13 @@ const AppRouter = () => (
           </Route>
 
           <Route element={<RoleRoute allowedRoles={["admin"]} />}>
-            <Route
-              path="/master-data"
-              element={<PlaceholderPage title="Master Data" />}
-            />
+            {/* Master Data sub-routes — added by Dev B */}
+            <Route path="/master-data"                 element={<MachinesPage />} />
+            <Route path="/master-data/machines"        element={<MachinesPage />} />
+            <Route path="/master-data/locations"       element={<LocationsPage />} />
+            <Route path="/master-data/breakdown-types" element={<BreakdownTypesPage />} />
+            <Route path="/master-data/root-causes"     element={<RootCausesPage />} />
+            <Route path="/master-data/mttr-reasons"    element={<MttrReasonsPage />} />
             <Route
               path="/users"
               element={<PlaceholderPage title="User Management" />}
