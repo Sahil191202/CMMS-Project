@@ -1,3 +1,9 @@
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  logoutThunk
+} from '../store/authSlice';
+
+
 const UnauthorizedPage = () => {
   const dispatch = useDispatch();
   const handleLogout = async () => {

@@ -3,19 +3,19 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const pool = require("../config/database");
 
+const isProd = process.env.NODE_ENV === "production";
+
 const COOKIE_OPTIONS = {
-  httpOnly: true,      // JS cannot read this cookie
-  secure:true,  // HTTPS only in prod
-  sameSite: 'none',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  httpOnly: true,
+  secure: isProd, // false on localhost, true in prod
+  sameSite: isProd ? "none" : "lax", // lax works on localhost HTTP
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 const generateAccessToken = (user) => {
-  return jwt.sign(
-    { id: user.id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m" }
-  );
+  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+  });
 };
 
 const generateRefreshToken = () => {
@@ -28,14 +28,15 @@ const login = async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ message: "Username and password are required" });
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
   }
 
   try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+      username,
+    ]);
 
     const user = result.rows[0];
 
@@ -53,10 +54,9 @@ const login = async (req, res) => {
     }
 
     // Update last_login_at
-    await pool.query(
-      "UPDATE users SET last_login_at = NOW() WHERE id = $1",
-      [user.id]
-    );
+    await pool.query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [
+      user.id,
+    ]);
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
@@ -65,7 +65,7 @@ const login = async (req, res) => {
     await pool.query(
       `INSERT INTO refresh_tokens (user_id, token, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
-      [user.id, refreshToken]
+      [user.id, refreshToken],
     );
 
     // Set refresh token in httpOnly cookie
@@ -87,7 +87,6 @@ const login = async (req, res) => {
 };
 
 // POST /auth/refresh
-// POST /auth/refresh
 const refresh = async (req, res) => {
   const token = req.cookies.refreshToken;
 
@@ -101,14 +100,16 @@ const refresh = async (req, res) => {
        FROM refresh_tokens rt
        JOIN users u ON u.id = rt.user_id
        WHERE rt.token = $1 AND rt.expires_at > NOW()`,
-      [token]
+      [token],
     );
 
     const row = result.rows[0];
 
     if (!row) {
       res.clearCookie("refreshToken");
-      return res.status(401).json({ message: "Invalid or expired refresh token" });
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired refresh token" });
     }
 
     if (!row.is_active) {
@@ -122,14 +123,16 @@ const refresh = async (req, res) => {
     await pool.query(
       `INSERT INTO refresh_tokens (user_id, token, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
-      [row.user_id, newRefreshToken]
+      [row.user_id, newRefreshToken],
     );
 
-    const accessToken = generateAccessToken({ id: row.user_id, role: row.role });
+    const accessToken = generateAccessToken({
+      id: row.user_id,
+      role: row.role,
+    });
 
     res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
 
-    // ✅ Return user alongside accessToken
     return res.status(200).json({
       accessToken,
       user: {
@@ -161,7 +164,7 @@ const logout = async (req, res) => {
         `INSERT INTO blacklisted_tokens (token, expires_at)
          VALUES ($1, $2)
          ON CONFLICT (token) DO NOTHING`,
-        [accessToken, expiresAt]
+        [accessToken, expiresAt],
       );
     } catch (err) {
       // Token already expired or invalid — no need to blacklist
@@ -170,7 +173,9 @@ const logout = async (req, res) => {
 
   // Delete refresh token from DB
   if (refreshToken) {
-    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [refreshToken]);
+    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [
+      refreshToken,
+    ]);
   }
 
   res.clearCookie("refreshToken");
@@ -182,7 +187,7 @@ const getMe = async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, name, username, role FROM users WHERE id = $1 AND is_active = TRUE",
-      [req.user.id]
+      [req.user.id],
     );
 
     const user = result.rows[0];
