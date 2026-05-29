@@ -110,7 +110,6 @@
   export const { clearAuth, clearError } = authSlice.actions;
 
   export const selectUser = (state) => state.auth.user;
-  // ✅ Use the boolean, not !!user — user can be null even when restoring
   export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
   export const selectInitializing = (state) => state.auth.initializing;
   export const selectAuthLoading = (state) => state.auth.loading;

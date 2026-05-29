@@ -22,6 +22,7 @@ app.get("/health", (req, res) => {
 });
 
 // Routes
+<<<<<<< HEAD
 app.use("/api/auth",  require("./routes/auth.routes"));
 app.use("/api/users", require("./routes/user.routes"));
 // app.use("/api/assets",          require("./routes/asset.routes"));       // Day 3
@@ -30,6 +31,18 @@ app.use("/api/users", require("./routes/user.routes"));
 // app.use("/api/tickets",         require("./routes/ticket.routes"));      // Day 4-5
 // app.use("/api/dashboard",       require("./routes/dashboard.routes"));   // Day 6
 // app.use("/api/reports",         require("./routes/report.routes"));      // Day 7
+=======
+app.use("/api/auth",            require("./routes/auth.routes"));
+app.use("/api/users",           require("./routes/user.routes"));
+app.use("/api/assets",          require("./routes/asset.routes"));
+app.use("/api/locations",       require("./routes/location.routes"));
+app.use("/api/breakdown-types", require("./routes/breakdownType.routes"));
+app.use("/api/root-causes",     require("./routes/rootCause.routes"));
+app.use("/api/mttr-reasons",    require("./routes/mttrReason.routes"));
+// app.use("/api/tickets",       require("./routes/ticket.routes"));     // Day 4-5
+// app.use("/api/dashboard",     require("./routes/dashboard.routes"));  // Day 6
+// app.use("/api/reports",       require("./routes/report.routes"));     // Day 7
+>>>>>>> 5fdd7323092550931089ab4d77430191dd6ca83d
 
 // 404 handler
 app.use((req, res) => {

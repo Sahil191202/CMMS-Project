@@ -1,6 +1,6 @@
 // App.jsx
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -21,6 +21,12 @@ import AppLayout from "./layouts/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+// ─── Master Data pages (Dev B) ────────────────────────────────────────────────
+import MachinesPage       from "./pages/master-data/MachinesPage";
+import LocationsPage      from "./pages/master-data/LocationsPage";
+import BreakdownTypesPage from "./pages/master-data/BreakdownTypesPage";
+import RootCausesPage     from "./pages/master-data/RootCausesPage";
+import MttrReasonsPage    from "./pages/master-data/MttrReasonsPage";
 
 // ─── Loaders & Guards ─────────────────────────────────────────────────────────
 
@@ -43,10 +49,16 @@ const ProtectedRoute = () => {
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
+
 const RoleRoute = ({ allowedRoles }) => {
   const user = useSelector(selectUser);
+  const initializing = useSelector(selectInitializing);
+
+  if (initializing) return <AppLoader />;
+
   if (!allowedRoles.includes(user?.role))
     return <Navigate to="/unauthorized" replace />;
+
   return <Outlet />;
 };
 
@@ -81,19 +93,42 @@ const AppRouter = () => (
         <Route element={<AppLayout />}>
           <Route path="/" element={<RoleHome />} />
 
-          <Route element={<RoleRoute allowedRoles={["admin", "maintenance"]} />}>
+          <Route
+            element={<RoleRoute allowedRoles={["admin", "maintenance"]} />}
+          >
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
+            <Route
+              path="/reports"
+              element={<PlaceholderPage title="Reports" />}
+            />
           </Route>
 
           <Route element={<RoleRoute allowedRoles={["admin"]} />}>
-            <Route path="/master-data" element={<PlaceholderPage title="Master Data" />} />
-            <Route path="/users" element={<PlaceholderPage title="User Management" />} />
+            {/* Master Data sub-routes — added by Dev B */}
+            <Route path="/master-data"                 element={<MachinesPage />} />
+            <Route path="/master-data/machines"        element={<MachinesPage />} />
+            <Route path="/master-data/locations"       element={<LocationsPage />} />
+            <Route path="/master-data/breakdown-types" element={<BreakdownTypesPage />} />
+            <Route path="/master-data/root-causes"     element={<RootCausesPage />} />
+            <Route path="/master-data/mttr-reasons"    element={<MttrReasonsPage />} />
+            <Route
+              path="/users"
+              element={<PlaceholderPage title="User Management" />}
+            />
           </Route>
 
-          <Route path="/tickets" element={<PlaceholderPage title="Tickets" />} />
-          <Route path="/tickets/new" element={<PlaceholderPage title="New Ticket" />} />
-          <Route path="/tickets/:id" element={<PlaceholderPage title="Ticket Detail" />} />
+          <Route
+            path="/tickets"
+            element={<PlaceholderPage title="Tickets" />}
+          />
+          <Route
+            path="/tickets/new"
+            element={<PlaceholderPage title="New Ticket" />}
+          />
+          <Route
+            path="/tickets/:id"
+            element={<PlaceholderPage title="Ticket Detail" />}
+          />
         </Route>
       </Route>
 
@@ -106,10 +141,13 @@ const AppRouter = () => (
 
 const AppRoot = () => {
   const dispatch = useDispatch();
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     dispatch(restoreSession());
-  }, []); // ✅ empty deps — runs exactly once on mount, never again
+  }, []);
 
   return <AppRouter />;
 };

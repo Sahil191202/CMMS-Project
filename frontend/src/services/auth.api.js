@@ -2,7 +2,10 @@ import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+<<<<<<< HEAD
 // ✅ Memory only — never touches localStorage
+=======
+>>>>>>> 5fdd7323092550931089ab4d77430191dd6ca83d
 let accessToken = null;
 
 export const setAccessToken = (token) => {
