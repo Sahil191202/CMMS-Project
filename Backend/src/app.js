@@ -29,7 +29,7 @@ app.use("/api/locations",       require("./routes/location.routes"));
 app.use("/api/breakdown-types", require("./routes/breakdownType.routes"));
 app.use("/api/root-causes",     require("./routes/rootCause.routes"));
 app.use("/api/mttr-reasons",    require("./routes/mttrReason.routes"));
-// app.use("/api/tickets",       require("./routes/ticket.routes"));     // Day 4-5
+app.use("/api/tickets",       require("./routes/ticket.routes"));
 // app.use("/api/dashboard",     require("./routes/dashboard.routes"));  // Day 6
 // app.use("/api/reports",       require("./routes/report.routes"));     // Day 7
 
