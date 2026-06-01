@@ -27,6 +27,9 @@ import LocationsPage      from "./pages/master-data/LocationsPage";
 import BreakdownTypesPage from "./pages/master-data/BreakdownTypesPage";
 import RootCausesPage     from "./pages/master-data/RootCausesPage";
 import MttrReasonsPage    from "./pages/master-data/MttrReasonsPage";
+// ─── Ticket pages (Dev B) ─────────────────────────────────────────────────────
+import TicketsPage    from "./pages/tickets/TicketsPage";
+import NewTicketPage  from "./pages/tickets/NewTicketPage";
 
 // ─── Loaders & Guards ─────────────────────────────────────────────────────────
 
@@ -117,14 +120,9 @@ const AppRouter = () => (
             />
           </Route>
 
-          <Route
-            path="/tickets"
-            element={<PlaceholderPage title="Tickets" />}
-          />
-          <Route
-            path="/tickets/new"
-            element={<PlaceholderPage title="New Ticket" />}
-          />
+          {/* Ticket routes — all authenticated roles */}
+          <Route path="/tickets"     element={<TicketsPage />} />
+          <Route path="/tickets/new" element={<NewTicketPage />} />
           <Route
             path="/tickets/:id"
             element={<PlaceholderPage title="Ticket Detail" />}
