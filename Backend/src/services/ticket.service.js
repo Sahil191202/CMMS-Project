@@ -2,10 +2,16 @@ const pool = require("../config/database");
 
 // Generate ticket number like TKT-0001
 const generateTicketNumber = async () => {
-  const result = await pool.query("SELECT COUNT(*) FROM tickets");
-  const count = parseInt(result.rows[0].count) + 1;
-  return `TKT-${String(count).padStart(4, "0")}`;
+  // MAX is immune to deletions and concurrent inserts.
+  // COALESCE handles the empty-table case.
+  const result = await pool.query(
+    `SELECT COALESCE(MAX(CAST(SUBSTRING(ticket_number FROM 5) AS INTEGER)), 0) + 1 AS next
+     FROM tickets`
+  );
+  const next = result.rows[0].next;
+  return `TKT-${String(next).padStart(4, "0")}`;
 };
+
 
 // POST /tickets
 const createTicket = async ({ asset_id, location_id, breakdown_type_id, description, priority, reported_by }) => {
@@ -173,4 +179,130 @@ const pickupTicket = async (ticket_id, user_id) => {
   return getTicketById(ticket_id);
 };
 
-module.exports = { createTicket, getTickets, getTicketById, pickupTicket };
+// PATCH /tickets/:id/close — set CLOSED, calculate MTTR, update MTBF gap
+const closeTicket = async (ticket_id, user_id, { root_cause_id, mttr_reason_id, resolution_notes, parts_replaced }) => {
+  if (!root_cause_id)    throw { status: 400, message: "root_cause_id is required" };
+  if (!mttr_reason_id)   throw { status: 400, message: "mttr_reason_id is required" };
+  if (!resolution_notes) throw { status: 400, message: "resolution_notes is required" };
+
+  const ticketResult = await pool.query("SELECT * FROM tickets WHERE id = $1", [ticket_id]);
+  if (!ticketResult.rows[0]) throw { status: 404, message: "Ticket not found" };
+
+  const ticket = ticketResult.rows[0];
+
+  if (ticket.status !== "IN_PROGRESS") {
+    throw { status: 400, message: "Ticket must be IN_PROGRESS before closing" };
+  }
+
+  // MTTR = now minus reported_at, in minutes
+  const closedAt = new Date();
+  const reportedAt = new Date(ticket.reported_at);
+  const mttr_minutes = Math.round((closedAt - reportedAt) / (1000 * 60));
+
+  await pool.query(
+    `UPDATE tickets
+     SET
+       status           = 'CLOSED',
+       closed_by        = $1,
+       closed_at        = $2,
+       root_cause_id    = $3,
+       mttr_reason_id   = $4,
+       resolution_notes = $5,
+       parts_replaced   = $6,
+       mttr_minutes     = $7,
+       updated_at       = NOW()
+     WHERE id = $8`,
+    [
+      user_id,
+      closedAt,
+      root_cause_id,
+      mttr_reason_id,
+      resolution_notes,
+      parts_replaced || null,
+      mttr_minutes,
+      ticket_id,
+    ]
+  );
+
+  return getTicketById(ticket_id);
+};
+
+// MTBF helper — for a given asset, calculate average time between failures
+// MTBF = average of (next ticket reported_at - previous ticket closed_at) across all consecutive pairs
+const getMTBFByAsset = async (asset_id) => {
+  // Fetch all closed tickets for this asset ordered by close time
+  const result = await pool.query(
+    `SELECT reported_at, closed_at
+     FROM tickets
+     WHERE asset_id = $1
+       AND status = 'CLOSED'
+       AND closed_at IS NOT NULL
+     ORDER BY closed_at ASC`,
+    [asset_id]
+  );
+
+  const tickets = result.rows;
+
+  // Need at least 2 closed tickets to calculate a gap
+  if (tickets.length < 2) return null;
+
+  const gaps = [];
+  for (let i = 1; i < tickets.length; i++) {
+    const prevClosedAt  = new Date(tickets[i - 1].closed_at);
+    const currReportedAt = new Date(tickets[i].reported_at);
+    const gapMinutes = Math.round((currReportedAt - prevClosedAt) / (1000 * 60));
+
+    // Only count positive gaps — if a ticket was opened before previous closed, skip
+    if (gapMinutes > 0) gaps.push(gapMinutes);
+  }
+
+  if (gaps.length === 0) return null;
+
+  const avgMtbfMinutes = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+  return avgMtbfMinutes;
+};
+
+// GET MTBF across all assets — used by dashboard
+const getMTBFAllAssets = async ({ from, to } = {}) => {
+  let conditions = ["t.status = 'CLOSED'", "t.closed_at IS NOT NULL"];
+  const values = [];
+  let idx = 1;
+
+  if (from) { conditions.push(`t.reported_at >= $${idx++}`); values.push(new Date(from)); }
+  if (to)   {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(`t.reported_at <= $${idx++}`);
+    values.push(toDate);
+  }
+
+  const where = `WHERE ${conditions.join(" AND ")}`;
+
+  const result = await pool.query(
+    `SELECT asset_id, reported_at, closed_at
+     FROM tickets t
+     ${where}
+     ORDER BY asset_id, closed_at ASC`,
+    values
+  );
+
+  // Group by asset
+  const byAsset = {};
+  for (const row of result.rows) {
+    if (!byAsset[row.asset_id]) byAsset[row.asset_id] = [];
+    byAsset[row.asset_id].push(row);
+  }
+
+  // Calculate MTBF per asset, then average across all assets
+  const assetMtbfs = [];
+  for (const asset_id of Object.keys(byAsset)) {
+    const mtbf = await getMTBFByAsset(asset_id);
+    if (mtbf !== null) assetMtbfs.push(mtbf);
+  }
+
+  if (assetMtbfs.length === 0) return null;
+
+  return Math.round(assetMtbfs.reduce((a, b) => a + b, 0) / assetMtbfs.length);
+};
+
+module.exports = { createTicket, getTickets, getTicketById, pickupTicket, closeTicket, getMTBFByAsset, getMTBFAllAssets };
