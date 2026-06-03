@@ -22,15 +22,15 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 // ─── Master Data pages (Dev B) ────────────────────────────────────────────────
-import MachinesPage from "./pages/master-data/MachinesPage";
-import LocationsPage from "./pages/master-data/LocationsPage";
+import MachinesPage       from "./pages/master-data/MachinesPage";
+import LocationsPage      from "./pages/master-data/LocationsPage";
 import BreakdownTypesPage from "./pages/master-data/BreakdownTypesPage";
-import RootCausesPage from "./pages/master-data/RootCausesPage";
-import MttrReasonsPage from "./pages/master-data/MttrReasonsPage";
+import RootCausesPage     from "./pages/master-data/RootCausesPage";
+import MttrReasonsPage    from "./pages/master-data/MttrReasonsPage";
 // ─── Ticket pages (Dev B) ─────────────────────────────────────────────────────
-import TicketsPage from "./pages/tickets/TicketsPage";
-import TicketDetailPage from "./pages/tickets/TicketDetailPage";
-import NewTicketPage from "./pages/tickets/NewTicketPage";
+import TicketsPage       from "./pages/tickets/TicketsPage";
+import NewTicketPage     from "./pages/tickets/NewTicketPage";
+import TicketDetailPage  from "./pages/tickets/TicketDetailPage";
 
 // ─── Loaders & Guards ─────────────────────────────────────────────────────────
 
@@ -52,6 +52,7 @@ const ProtectedRoute = () => {
   if (initializing) return <AppLoader />;
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
+
 
 const RoleRoute = ({ allowedRoles }) => {
   const user = useSelector(selectUser);
@@ -108,21 +109,12 @@ const AppRouter = () => (
 
           <Route element={<RoleRoute allowedRoles={["admin"]} />}>
             {/* Master Data sub-routes — added by Dev B */}
-            <Route path="/master-data" element={<MachinesPage />} />
-            <Route path="/master-data/machines" element={<MachinesPage />} />
-            <Route path="/master-data/locations" element={<LocationsPage />} />
-            <Route
-              path="/master-data/breakdown-types"
-              element={<BreakdownTypesPage />}
-            />
-            <Route
-              path="/master-data/root-causes"
-              element={<RootCausesPage />}
-            />
-            <Route
-              path="/master-data/mttr-reasons"
-              element={<MttrReasonsPage />}
-            />
+            <Route path="/master-data"                 element={<MachinesPage />} />
+            <Route path="/master-data/machines"        element={<MachinesPage />} />
+            <Route path="/master-data/locations"       element={<LocationsPage />} />
+            <Route path="/master-data/breakdown-types" element={<BreakdownTypesPage />} />
+            <Route path="/master-data/root-causes"     element={<RootCausesPage />} />
+            <Route path="/master-data/mttr-reasons"    element={<MttrReasonsPage />} />
             <Route
               path="/users"
               element={<PlaceholderPage title="User Management" />}
@@ -130,9 +122,12 @@ const AppRouter = () => (
           </Route>
 
           {/* Ticket routes — all authenticated roles */}
-          <Route path="/tickets" element={<TicketsPage />} />
-          <Route path="/tickets/new" element={<NewTicketPage />} />
-          <Route path="/tickets/:id" element={<TicketDetailPage />} /> 
+          <Route path="/tickets"     element={<TicketsPage />} />
+          {/* Only operator + maintenance can create tickets */}
+          <Route element={<RoleRoute allowedRoles={['operator', 'maintenance']} />}>
+            <Route path="/tickets/new" element={<NewTicketPage />} />
+          </Route>
+          <Route path="/tickets/:id" element={<TicketDetailPage />} />
         </Route>
       </Route>
 

@@ -1,11 +1,4 @@
-// hooks/useTicketFilters.js
-// Manages the filter bar state for the Tickets List page.
-// Returns filters object, setters, and a built query string
-// ready to append to GET /api/tickets
-//
-// Usage:
-//   const { filters, setFilter, resetFilters, queryString } = useTicketFilters();
-//   const { data } = useFetch(`/api/tickets?${queryString}`);
+//useTicketFilters.js
 
 import { useState, useMemo } from 'react';
 
@@ -27,7 +20,6 @@ const useTicketFilters = () => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      // Reset to page 1 whenever a filter changes (not when page changes itself)
       page: key === 'page' ? value : 1,
     }));
   };
