@@ -9,7 +9,7 @@ router.get("/",              authenticate, getTickets);
 router.get("/:id",           authenticate, getTicketById);
 
 // Only maintenance and admin can pick up or close tickets
-router.patch("/:id/pickup",  authenticate, authorize(["maintenance", "admin"]), pickupTicket);
-router.patch("/:id/close",   authenticate, authorize(["maintenance", "admin"]), closeTicket);
+router.patch("/:id/pickup",  authenticate, authorize(["maintenance"]), pickupTicket);
+router.patch("/:id/close",   authenticate, authorize(["maintenance"]), closeTicket);
 
 module.exports = router;
