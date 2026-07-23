@@ -117,6 +117,19 @@ CREATE TABLE tickets (
   updated_at        TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE refresh_tokens (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      VARCHAR(512) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE blacklisted_tokens (
+  token      TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 
 -- ─────────────────────────────────────────────
 -- INDEXES (for common query patterns)
@@ -126,3 +139,5 @@ CREATE INDEX idx_tickets_status      ON tickets(status);
 CREATE INDEX idx_tickets_asset_id    ON tickets(asset_id);
 CREATE INDEX idx_tickets_reported_at ON tickets(reported_at);
 CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to);
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX idx_blacklisted_tokens_expires ON blacklisted_tokens(expires_at);
