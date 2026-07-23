@@ -86,4 +86,79 @@ const deactivateUser = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, createUser, deactivateUser };
+// PUT /users/:id  [admin only]
+const updateUser = async (req, res) => {
+  const { id } = req.params;
+  const { name, role, is_active } = req.body;
+
+  const validRoles = ["admin", "maintenance", "operator"];
+  if (role && !validRoles.includes(role)) {
+    return res.status(400).json({ message: "role must be admin, maintenance, or operator" });
+  }
+
+  // Prevent admin from deactivating themselves
+  if (parseInt(id) === req.user.id && is_active === false) {
+    return res.status(400).json({ message: "You cannot deactivate your own account" });
+  }
+
+  try {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (name       !== undefined) { fields.push(`name = $${idx++}`);      values.push(name); }
+    if (role       !== undefined) { fields.push(`role = $${idx++}`);      values.push(role); }
+    if (is_active  !== undefined) { fields.push(`is_active = $${idx++}`); values.push(is_active); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ message: "No fields to update" });
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const result = await pool.query(
+      `UPDATE users SET ${fields.join(", ")} WHERE id = $${idx} RETURNING id, name, username, role, is_active, updated_at`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Update user error:", err.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// POST /users/:id/reset-password  [admin only]
+const resetPassword = async (req, res) => {
+  const { id } = req.params;
+  const { new_password } = req.body;
+
+  if (!new_password || new_password.length < 6) {
+    return res.status(400).json({ message: "new_password must be at least 6 characters" });
+  }
+
+  try {
+    const password_hash = await bcrypt.hash(new_password, 10);
+
+    const result = await pool.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id`,
+      [password_hash, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ message: "Password reset successful" });
+  } catch (err) {
+    console.error("Reset password error:", err.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+module.exports = { getAllUsers, createUser, deactivateUser, updateUser, resetPassword };
